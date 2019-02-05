@@ -3,8 +3,16 @@ extern crate csv;
 use std::error::Error;
 use std::io;
 use std::process;
+use std::fmt;
+
 #[macro_use]
 extern crate serde_derive;
+
+use serde_json::json;
+use serde::{Serialize};
+// use serde_json::Result;
+
+
 
 /*
 
@@ -26,6 +34,20 @@ struct Record {
     otherColumn: Option<String>
 }
 
+#[derive(Debug, Serialize)]
+struct JsonOkLineOutput {
+    lineNumber: i32,
+    lineType: String, // TODO : serialise to "type"
+    concatAB: String,
+    sumCD: i64,
+}
+
+#[derive(Debug, Serialize)]
+struct JsonErrorLineOutput {
+    lineNumber: i32,
+    lineType: String, // TODO : serialise to "type"
+    errorMessage: String,
+}
 
 
 fn example() -> Result<(), Box<Error>> {
@@ -35,30 +57,48 @@ fn example() -> Result<(), Box<Error>> {
         .flexible(true)
         .from_reader(io::stdin());
 
-    for result in rdr.deserialize() {
-        if let Err(_) = result { continue }
-        let record: Record = result?;
+    let mut count = 0;
 
-        // println!("{:?}", record);
-        if let (Some(a), Some(b), Some(c), Some(d)) = (record.columnA, record.columnB, record.columnC, record.columnD) 
-        {
-            let sum = c + d;
-            if sum > 100 {
-                println!("{}{}", a, b);
+    println!("[");
+
+    for result in rdr.deserialize() {
+        count += 1;
+
+        match result {
+            Err(err) => {
+                let output = JsonErrorLineOutput {
+                    lineNumber: count,
+                    lineType: String::from("error"),
+                    errorMessage: format!("{:?}", err),
+                };
+
+                let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
+                jsonline.push_str(&serde_json::to_string(&output)?);
+                println!("{}", jsonline);
+            }
+            Ok(_) => {
+                let record: Record = result?;
+                if let (Some(a), Some(b), Some(c), Some(d)) = (record.columnA, record.columnB, record.columnC, record.columnD) 
+                {
+                    let sum = c + d;
+                    if sum > 100 {   
+                        let output = JsonOkLineOutput {
+                            lineNumber: count,
+                            lineType: String::from("ok"),
+                            concatAB: format!("{}{}", a, b),
+                            sumCD: c+d,
+                        };
+
+                        let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
+                        jsonline.push_str(&serde_json::to_string(&output)?);
+                        println!("{}", jsonline);
+                    }
+                }
             }
         }
-
-        // THIS MATCHING DOES NOT WORK :-/
-        // match (record.columnA, record.columnB, record.columnC, record.columnD) {
-        //     _    => continue,
-        //     (Some(a), Some(b), Some(c), Some(d)) => {
-        //         let sum = c + d;
-        //         if sum > 100 {
-        //             println!("{}{}", a, b);
-        //         }
-        //     },
-        // }
     }
+
+    println!("]");
 
     Ok(())
 }

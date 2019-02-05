@@ -1,3 +1,30 @@
+``` cmd
+cargo build
+
+echo %time%
+cat bigfile.csv | target\debug\bztest.exe > out.json
+echo %time%
+
+set before=%time%
+cat bigfile.csv | target\debug\bztest.exe
+echo timed from %before% to %time%
+
+set before=%time%
+cat bigfile.csv | target\debug\bztest.exe > NUL
+echo timed from %before% to %time%
+
+
+cargo build --release
+
+set before=%time%
+cat bigfile.csv | target\release\bztest.exe > NUL
+echo timed from %before% to %time%
+
+
+```
+
+
+
 # BeezUP Recruitment Test
 
 ## Introduction
@@ -33,7 +60,7 @@ Rows that can't be processed corretly shall by skipped.
 ### Step 2
 
 Replace the output from the previous step. Write a big JSON array of objects for the previous matched lines:
-- Rows that can be processed correctly : { "lineNumber": <FILE_LINE_NUMBER>, "type": "ok", "concatAB": "<PREVIOUS_AB_CONCAT>", "sumCD": <PREVIOUS_CD_SUM> }
+- Rows that can be processed correctly with C + D > 100: { "lineNumber": <FILE_LINE_NUMBER>, "type": "ok", "concatAB": "<PREVIOUS_AB_CONCAT>", "sumCD": <PREVIOUS_CD_SUM> }
 - Rows that can't be processed correctly : { "lineNumber": <FILE_LINE_NUMBER>, "type": "error", "errorMessage": <ERROR_MESSAGE> }
 
 ### Step 3
