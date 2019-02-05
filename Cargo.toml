@@ -5,3 +5,4 @@ authors = ["Jêrome Rx <jerome+git@rouaix.eu>"]
 edition = "2018"
 
 [dependencies]
+csv = "1"
