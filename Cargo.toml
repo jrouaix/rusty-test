@@ -1,0 +1,7 @@
+[package]
+name = "bztest"
+version = "0.1.0"
+authors = ["Jêrome Rx <jerome+git@rouaix.eu>"]
+edition = "2018"
+
+[dependencies]
