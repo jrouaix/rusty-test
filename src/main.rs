@@ -71,7 +71,7 @@ fn example() -> Result<(), Box<Error>> {
             }
             Ok(_) => {
                 let record: SourceLine = result?;
-                if let (Some(a), Some(b), Some(c), Some(d)) = (record.columnA, record.columnB, record.columnC, record.columnD) 
+                if let (Some(a), Some(b), Some(c), Some(d)) = (record.column_a, record.column_b, record.column_c, record.column_d) 
                 {
                     let sum = c + d;
                     if sum > 100 {
@@ -111,15 +111,19 @@ fn main() {
 #[derive(Debug, Deserialize)]
 struct SourceLine {
     column: Option<String>,
-    columnA: Option<String>, 
-    columnB: Option<String>,
-    columnC : Option<i64>,
-    // column_c : String,
-    columnD: Option<i64>,
-    otherColumn: Option<String>
+    #[serde(rename = "columnA")]
+    column_a: Option<String>, 
+    #[serde(rename = "columnB")]
+    column_b: Option<String>,
+    #[serde(rename = "columnC")]
+    column_c : Option<i64>,
+    #[serde(rename = "columnD")]
+    column_d: Option<i64>,
+    #[serde(rename = "otherColumn")]
+    other_column: Option<String>
 }
 
-
+/*
 struct CsvSource<'r, R: io::Read>{
     iterator: csv::DeserializeRecordsIter<'r, R, SourceLine>,
 }
@@ -135,6 +139,7 @@ impl<'r, R: io::Read> CsvSource<'r, R> {
         // Source { iterator : csv::DeserializeRecordsIter::new(rdr) }
     }
 }
+*/
 
 // impl<R: io::Read> Iterator for Source<R>{
 //     type Item = SourceLine;
