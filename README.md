@@ -9,7 +9,7 @@ echo timed from %before% to %time%
 cargo build --release
 
 set before=%time%
-type bigfile.csv | target\release\bztest.exe > NUL
+type bigfile.csv | target\release\bztest.exe
 echo timed from %before% to %time%
 
 ```

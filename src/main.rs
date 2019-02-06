@@ -23,17 +23,6 @@ Replace the output from the previous step. Write a big JSON array of objects for
 */
 
 
-#[derive(Debug, Deserialize)]
-struct CsvLine {
-    column: Option<String>,
-    columnA: Option<String>, 
-    columnB: Option<String>,
-    columnC : Option<i64>,
-    // column_c : String,
-    columnD: Option<i64>,
-    otherColumn: Option<String>
-}
-
 #[derive(Debug, Serialize)]
 struct JsonOkLineOutput {
     lineNumber: i32,
@@ -81,11 +70,11 @@ fn example() -> Result<(), Box<Error>> {
                 println!("{}", jsonline);
             }
             Ok(_) => {
-                let record: CsvLine = result?;
+                let record: SourceLine = result?;
                 if let (Some(a), Some(b), Some(c), Some(d)) = (record.columnA, record.columnB, record.columnC, record.columnD) 
                 {
                     let sum = c + d;
-                    if sum > 100 {   
+                    if sum > 100 {
                         let output = JsonOkLineOutput {
                             lineNumber: count,
                             lineType: String::from("ok"),
@@ -113,3 +102,73 @@ fn main() {
         process::exit(1);
     }
 }
+
+
+// ***************************************************
+//                      SOURCE
+// ***************************************************
+
+#[derive(Debug, Deserialize)]
+struct SourceLine {
+    column: Option<String>,
+    columnA: Option<String>, 
+    columnB: Option<String>,
+    columnC : Option<i64>,
+    // column_c : String,
+    columnD: Option<i64>,
+    otherColumn: Option<String>
+}
+
+
+struct CsvSource<'r, R: io::Read>{
+    iterator: csv::DeserializeRecordsIter<'r, R, SourceLine>,
+}
+
+impl<'r, R: io::Read> CsvSource<'r, R> {
+    fn new(rdr : &'r mut R) -> CsvSource<'r, R> {
+        CsvSource { iterator : rdr.deserialize<SourceLine>() }
+
+        // let deser:SourceLine =  rdr.deserialize();
+
+        // return CsvSource { iterator: deser }; 
+        // CsvSource { iterator : () }
+        // Source { iterator : csv::DeserializeRecordsIter::new(rdr) }
+    }
+}
+
+// impl<R: io::Read> Iterator for Source<R>{
+//     type Item = SourceLine;
+
+//     fn next(&mut self) -> Option<Self::Item>{
+//         let next = self.reader.next();
+        
+//         None
+//         // reader
+//     }
+// }
+
+// pub fn from_reader<R: io::Read>(&self, rdr: R) -> Reader<R> {
+//         Reader::new(self, rdr)
+//     }
+
+// impl Iterator for Source {
+//     // we will be counting with usize
+//     type Item = SourceLine;
+
+//     // next() is the only required method
+//     fn next(&mut self) -> Option<usize> {
+//         // Increment our count. This is why we started at zero.
+//         self.count += 1;
+
+//         // Check to see if we've finished counting or not.
+//         if self.count < 6 {
+//             Some(self.count)
+//         } else {
+//             None
+//         }
+//     }
+// }
+
+// ***************************************************
+//                      SOURCE
+// ***************************************************
