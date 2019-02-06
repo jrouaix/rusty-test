@@ -3,13 +3,13 @@ extern crate csv;
 use std::error::Error;
 use std::io;
 use std::process;
-use std::fmt;
+// use std::fmt;
 
 #[macro_use]
 extern crate serde_derive;
 
-use serde_json::json;
-use serde::{Serialize};
+// use serde_json::json;
+// use serde::{Serialize};
 // use serde_json::Result;
 
 
@@ -25,17 +25,24 @@ Replace the output from the previous step. Write a big JSON array of objects for
 
 #[derive(Debug, Serialize)]
 struct JsonOkLineOutput {
-    lineNumber: i32,
-    lineType: String, // TODO : serialise to "type"
-    concatAB: String,
-    sumCD: i64,
+    #[serde(rename = "lineNumber")]
+    line_number: i32,
+    #[serde(rename = "lineType")]
+    line_type: String, // TODO : serialise to "type"
+    #[serde(rename = "concatAB")]
+    concat_ab: String,
+    #[serde(rename = "sumCD")]
+    sum_cd: i64,
 }
 
 #[derive(Debug, Serialize)]
 struct JsonErrorLineOutput {
-    lineNumber: i32,
-    lineType: String, // TODO : serialise to "type"
-    errorMessage: String,
+    #[serde(rename = "lineNumber")]
+    line_number: i32,
+    #[serde(rename = "lineType")]
+    line_type: String, // TODO : serialise to "type"
+    #[serde(rename = "errorMessage")]
+    error_message: String,
 }
 
 
@@ -60,9 +67,9 @@ fn example() -> Result<(), Box<Error>> {
         match result {
             Err(err) => {
                 let output = JsonErrorLineOutput {
-                    lineNumber: count,
-                    lineType: String::from("error"),
-                    errorMessage: format!("{:?}", err),
+                    line_number: count,
+                    line_type: String::from("error"),
+                    error_message: format!("{:?}", err),
                 };
 
                 let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
@@ -76,10 +83,10 @@ fn example() -> Result<(), Box<Error>> {
                     let sum = c + d;
                     if sum > 100 {
                         let output = JsonOkLineOutput {
-                            lineNumber: count,
-                            lineType: String::from("ok"),
-                            concatAB: format!("{}{}", a, b),
-                            sumCD: c+d,
+                            line_number: count,
+                            line_type: String::from("ok"),
+                            concat_ab: format!("{}{}", a, b),
+                            sum_cd: c+d,
                         };
 
                         let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
