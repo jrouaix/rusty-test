@@ -24,7 +24,7 @@ Replace the output from the previous step. Write a big JSON array of objects for
 
 
 #[derive(Debug, Deserialize)]
-struct Record {
+struct CsvLine {
     column: Option<String>,
     columnA: Option<String>, 
     columnB: Option<String>,
@@ -51,11 +51,15 @@ struct JsonErrorLineOutput {
 
 
 fn example() -> Result<(), Box<Error>> {
+    let input = io::stdin();
+    let handle = input;
+    // let handle = input.lock(); // change nothing after all
+
     // Build the CSV reader and iterate over each record.
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b';')
         .flexible(true)
-        .from_reader(io::stdin());
+        .from_reader(handle);
 
     let mut count = 0;
 
@@ -77,7 +81,7 @@ fn example() -> Result<(), Box<Error>> {
                 println!("{}", jsonline);
             }
             Ok(_) => {
-                let record: Record = result?;
+                let record: CsvLine = result?;
                 if let (Some(a), Some(b), Some(c), Some(d)) = (record.columnA, record.columnB, record.columnC, record.columnD) 
                 {
                     let sum = c + d;

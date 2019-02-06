@@ -1,25 +1,16 @@
 ``` cmd
 cargo build
 
-echo %time%
-cat bigfile.csv | target\debug\bztest.exe > out.json
-echo %time%
-
 set before=%time%
-cat bigfile.csv | target\debug\bztest.exe
-echo timed from %before% to %time%
-
-set before=%time%
-cat bigfile.csv | target\debug\bztest.exe > NUL
+type bigfile.csv | target\debug\bztest.exe > NUL
 echo timed from %before% to %time%
 
 
 cargo build --release
 
 set before=%time%
-cat bigfile.csv | target\release\bztest.exe > NUL
+type bigfile.csv | target\release\bztest.exe > NUL
 echo timed from %before% to %time%
-
 
 ```
 
