@@ -1,6 +1,8 @@
 ``` cmd
 cargo build
 
+type bigfile.csv | target\debug\bztest.exe | grep 1234
+
 set before=%time%
 type bigfile.csv | target\debug\bztest.exe > NUL
 echo timed from %before% to %time%
@@ -9,7 +11,7 @@ echo timed from %before% to %time%
 cargo build --release
 
 set before=%time%
-type bigfile.csv | target\release\bztest.exe
+type bigfile.csv | target\release\bztest.exe > NUL
 echo timed from %before% to %time%
 
 ```
