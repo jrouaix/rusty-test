@@ -3,6 +3,7 @@ extern crate csv;
 use std::error::Error;
 use std::io;
 use std::process;
+use std::boxed;
 // use std::error;
 // use std::fmt;
 
@@ -29,8 +30,8 @@ Replace the output from the previous step. Write a big JSON array of objects for
 
 fn example() -> Result<(), Box<Error>> {
     let input = io::stdin();
-    let handle = input;
-    // let handle = input.lock(); // change nothing after all
+    //let handle = input;
+    let handle = input.lock(); // change nothing after all
 
     // Build the CSV reader and iterate over each record.
     let mut rdr = csv::ReaderBuilder::new()
@@ -42,18 +43,14 @@ fn example() -> Result<(), Box<Error>> {
     let formater = JsonOutputFormater {};
     let line_separator = formater.get_line_separator();
     
-    println!("[");
+    println!("{}", formater.get_output_begin());
 
     for result in rdr.deserialize() {
         count += 1;
 
         match result {
             Err(err) => {
-                let output = JsonErrorLineOutput {
-                    line_number: count,
-                    line_type: String::from("error"),
-                    error_message: format!("{:?}", err),
-                };
+                let output = formater.format_error_line(&count, &err);
 
                 let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
                 jsonline.push_str(&serde_json::to_string(&output)?);
@@ -76,7 +73,7 @@ fn example() -> Result<(), Box<Error>> {
         }
     }
 
-    println!("]");
+    println!("{}", formater.get_output_end());
 
     Ok(())
 }
@@ -107,6 +104,8 @@ trait OutputFormater {
     fn format_error_line<E: Error>(&self, line_number : &i32,  err: &E) -> String;
 
     fn get_line_separator(&self) -> &'static str;
+    fn get_output_begin(&self) -> &'static str;
+    fn get_output_end(&self) -> &'static str;
 }
 
 // Json
@@ -157,10 +156,19 @@ impl OutputFormater for JsonOutputFormater{
     }
 
     fn format_error_line<E: Error>(&self, line_number : &i32,  err: &E) -> String{
-        "".to_owned()
+        let output = JsonErrorLineOutput {
+            line_number: *line_number,
+            line_type: String::from("error"),
+            error_message: format!("{:?}", err),
+        };
+
+        serde_json::to_string(&output)
+            .unwrap_or_else(|e| panic!(e)) // should not happen
     }
 
     fn get_line_separator(&self) -> &'static str { "\n ," }
+    fn get_output_begin(&self) -> &'static str { "[" }
+    fn get_output_end(&self) -> &'static str { "]" }
 }
 
 // Text
@@ -185,17 +193,50 @@ struct SourceLine {
     other_column: Option<String>
 }
 
-/*
+    // iterator: Box<csv::DeserializeRecordsIter<'r, &'r mut R, SourceLine>>,
+    // iterator:     csv::DeserializeRecordsIter<'r, &'r mut R, SourceLine>,
+
 struct CsvSourceIterator<'r, R: io::Read>{
     iterator: csv::DeserializeRecordsIter<'r, R, SourceLine>,
 }
 
 impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
-    fn new(rdr : &'r mut R) -> CsvSource<'r, R> {
-        CsvSource { iterator : rdr.deserialize<SourceLine>() }
-    }
+    // fn new(rdr : R) -> CsvSourceIterator<'r, R> {
+    //     let csv = csv::ReaderBuilder::new()
+    //         .delimiter(b';')
+    //         .flexible(true)
+    //         .from_reader(rdr)
+    //         .deserialize();
+            
+    //     CsvSourceIterator { iterator : csv }
+    // }
+
+    // fn new(rdr : R) -> CsvSourceIterator<'r, R> {
+    //     // let test= Box::new(5);
+
+    //     let mut csv1 = Box::new(csv::ReaderBuilder::new());
+    //     let csv2 = Box::new(csv1.delimiter(b';'));
+    //     let csv3 = Box::new(csv2.flexible(true));
+    //     let mut csv4 = Box::new(csv3.from_reader(rdr));
+    //     let csv5 = Box<T + 'r>::new(csv4.deserialize();
+            
+    //     CsvSourceIterator { iterator : csv5 }
+    // }
+
+    // fn new(rdr : &'r mut R) -> CsvSourceIterator<'r, R> {
+    //     let mut csv1 = csv::ReaderBuilder::new();
+    //     let csv2 = csv1.delimiter(b';');
+    //     let csv3 = csv2.flexible(true);
+    //     let mut csv4 = csv3.from_reader(rdr);
+    //     let csv5 = csv4.deserialize();
+        
+    //     // let d  = ;
+    //     // //let d = csv.deserialize();
+
+    //     CsvSourceIterator { iterator : csv5 }
+    // }
 }
-*/
+
 
 // impl<R: io::Read> Iterator for CsvSourceIterator<R>{
 //     type Item = SourceLine;
