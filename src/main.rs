@@ -1,11 +1,16 @@
 extern crate csv;
 
+use std::str::FromStr;
 use std::error::Error;
 use std::io;
 use std::process;
 use std::boxed;
-// use std::error;
+use std::env;
 // use std::fmt;
+
+
+extern crate clap; 
+use clap::*; 
 
 #[macro_use]
 extern crate serde_derive;
@@ -22,6 +27,28 @@ extern crate serde_derive;
 
 fn main() {
     
+    // let args : Vec<String> =  env::args().skip(1).collect(); 
+    // let outputType = args.first().unwrap_or(&"json".to_owned());
+    let argumnets = App::new("bz-test")
+       .version(crate_version!())
+       .about("csv to whatever in rust")
+       .author(crate_authors!())
+       .arg(Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
+    //    .arg(Arg::with_name("file").short("f").takes_value(true))
+       .get_matches()
+       ; 
+
+    let output_type_name = argumnets.value_of("out").unwrap();
+    println!("{}", output_type_name);
+
+    let formater : Box<OutputFormater>;
+
+    match output_type_name {
+        "json" => formater = Box::new(JsonOutputFormater{}),
+        "text" => formater = Box::new(TextOutputFormater{}),
+        _ => unimplemented!(),
+    }
+
     let input = io::stdin();
     //let handle = input;
     let handle = input.lock(); // change nothing after all
@@ -33,7 +60,6 @@ fn main() {
         .from_reader(handle);
 
     let mut count = 0;
-    let formater = JsonOutputFormater {};
     let line_separator = formater.get_line_separator();
     
     println!("{}", formater.get_output_begin());
@@ -124,14 +150,26 @@ trait OutputFormater {
     fn get_output_end(&self) -> &'static str;
 }
 
+enum OutFormater {
+    Json,
+    Text
+}
+
+// impl FromStr for OutFormater {
+//     type Err = ();
+
+//     fn from_str(s: &str) -> Result<OutFormater, ()> {
+//         match s {
+//             "A" => Ok(OutFormater::Json),
+//             "B" => Ok(OutFormater::Text),
+//             _ => Err(()),
+//         }
+//     }
+// }
+
 // Json
 
-
-
-struct JsonOutputFormater 
-{
-
-}
+struct JsonOutputFormater { }
 
 impl OutputFormater for JsonOutputFormater{
     fn format_ok_line(&self, line_number : &i32, line: &OkLineOutput) -> String{
@@ -144,13 +182,27 @@ impl OutputFormater for JsonOutputFormater{
             .unwrap_or_else(|e| panic!(e)) // should not happen
     }
 
-    fn get_line_separator(&self) -> &'static str { "\n ," }
+    fn get_line_separator(&self) -> &'static str { "," }
     fn get_output_begin(&self) -> &'static str { "[" }
     fn get_output_end(&self) -> &'static str { "]" }
 }
 
 // Text
+struct TextOutputFormater { }
 
+impl OutputFormater for TextOutputFormater{
+    fn format_ok_line(&self, line_number : &i32, line: &OkLineOutput) -> String{
+        format!("line #{} : {} - {}", line.line_number, line.concat_ab, line.sum_cd)
+    }
+
+    fn format_error_line(&self, line_number : &i32,  err: &ErrorLineOutput) -> String{
+        format!("error as line {}: {}", err.line_number, err.error_message )
+    }
+
+    fn get_line_separator(&self) -> &'static str { "" }
+    fn get_output_begin(&self) -> &'static str { "" }
+    fn get_output_end(&self) -> &'static str { "" }
+}
 
 // ***************************************************
 //                      SOURCE
