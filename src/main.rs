@@ -22,27 +22,35 @@ use std::env;
 // use std::env;
 // env::args()
 
-// Output format (plain text, JSON, etc.) can now be configured by command line arguments. Integrate at least one new format.
+/*
+## Part 2 - API
 
+### Step 1
+
+Create an Api project that can receive HTTP POST and GET requests on /filter?csvUri={<CSV_URI>}.
+The payload response should be a json object as described in Part1
+*/
 
 fn main() {
     
     // let args : Vec<String> =  env::args().skip(1).collect(); 
     // let outputType = args.first().unwrap_or(&"json".to_owned());
     let argumnets = App::new("bz-test")
-       .version(crate_version!())
-       .about("csv to whatever in rust")
-       .author(crate_authors!())
-       .arg(Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
-    //    .arg(Arg::with_name("file").short("f").takes_value(true))
-       .get_matches()
-       ; 
+        .version(crate_version!())
+        .about("csv to whatever in rust")
+        .author(crate_authors!())
+        .subcommand(SubCommand::with_name("command")
+            .arg(Arg::with_name("file").short("f").takes_value(true))
+            .arg(Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
+        )
+        .subcommand(SubCommand::with_name("webserver")
+                .arg(Arg::with_name("port").short("p").takes_value(true).default_value("4242"))
+        )
+        .get_matches()
+        ;
 
     let output_type_name = argumnets.value_of("out").unwrap();
-    println!("{}", output_type_name);
-
     let formater : Box<OutputFormater>;
-
     match output_type_name {
         "json" => formater = Box::new(JsonOutputFormater{}),
         "text" => formater = Box::new(TextOutputFormater{}),
