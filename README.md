@@ -1,7 +1,8 @@
 ``` cmd
 cargo run -- -h
 
-type bigfile.csv | target\debug\bztest.exe | grep 1234
+type bigfile.csv | target\debug\bztest.exe process -o json | grep 1234
+type bigfile.csv | target\debug\bztest.exe process -o text | grep 1234
 
 set before=%time%
 type bigfile.csv | target\debug\bztest.exe > NUL

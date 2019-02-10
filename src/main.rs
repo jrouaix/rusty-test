@@ -35,37 +35,49 @@ fn main() {
     
     // let args : Vec<String> =  env::args().skip(1).collect(); 
     // let outputType = args.first().unwrap_or(&"json".to_owned());
-    let argumnets = App::new("bz-test")
+    let arguments = App::new("bz-test")
         .version(crate_version!())
         .about("csv to whatever in rust")
         .author(crate_authors!())
-        .subcommand(SubCommand::with_name("command")
+        .subcommand(SubCommand::with_name("process").about("Run transformation from stdin or a file.")
             .arg(Arg::with_name("file").short("f").takes_value(true))
             .arg(Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
         )
-        .subcommand(SubCommand::with_name("webserver")
-                .arg(Arg::with_name("port").short("p").takes_value(true).default_value("4242"))
+        .subcommand(SubCommand::with_name("webserver").about("Run transformation through a rest API.")
+            .arg(Arg::with_name("port").short("p").takes_value(true).default_value("4242"))
         )
         .get_matches()
         ;
 
-    let output_type_name = argumnets.value_of("out").unwrap();
-    let formater : Box<OutputFormater>;
-    match output_type_name {
-        "json" => formater = Box::new(JsonOutputFormater{}),
-        "text" => formater = Box::new(TextOutputFormater{}),
-        _ => unimplemented!(),
+    match arguments.subcommand() {
+        ("process", Some(command_matches)) =>{
+            let formater = get_formater(command_matches.value_of("out").unwrap());
+            let input = io::stdin();
+            process(formater, input);
+        },
+        ("webserver", Some(webserver_matches)) =>{
+            
+        },
+        ("", None)   => println!("Use a subcommand : process or webservice. see help for more informations."), 
+        _            => unreachable!(), 
     }
 
-    let input = io::stdin();
-    //let handle = input;
-    let handle = input.lock(); // change nothing after all
+}
+
+
+
+
+
+
+
+
+fn process<R: io::Read>(formater : Box<OutputFormater>, reader : R) {
 
     // Build the CSV reader and iterate over each record.
     let mut rdr = csv::ReaderBuilder::new()
         .delimiter(b';')
         .flexible(true)
-        .from_reader(handle);
+        .from_reader(reader);
 
     let mut count = 0;
     let line_separator = formater.get_line_separator();
@@ -124,6 +136,15 @@ fn main() {
 //                      TARGET
 // ***************************************************
 
+fn get_formater(output_type_name: &str) -> Box<OutputFormater> 
+{
+    let formater : Box<OutputFormater>;
+    match output_type_name {
+        "json" => return Box::new(JsonOutputFormater{}),
+        "text" => return Box::new(TextOutputFormater{}),
+        _ => unimplemented!(),
+    }
+}
 
 #[derive(Debug, Serialize)]
 struct OkLineOutput {
@@ -240,12 +261,12 @@ struct CsvSourceIterator<'r, R: io::Read>{
 
 impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
     // fn new(rdr : R) -> CsvSourceIterator<'r, R> {
-    //     let csv = csv::ReaderBuilder::new()
+    //     let csv = Box::new(csv::ReaderBuilder::new())
     //         .delimiter(b';')
     //         .flexible(true)
     //         .from_reader(rdr)
     //         .deserialize();
-            
+        
     //     CsvSourceIterator { iterator : csv }
     // }
 
