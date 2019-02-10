@@ -1,4 +1,11 @@
 extern crate csv;
+extern crate xml;
+
+extern crate clap; 
+use clap::*; 
+
+#[macro_use]
+extern crate serde_derive;
 
 use std::str::FromStr;
 use std::error::Error;
@@ -7,13 +14,6 @@ use std::process;
 use std::boxed;
 use std::env;
 // use std::fmt;
-
-
-extern crate clap; 
-use clap::*; 
-
-#[macro_use]
-extern crate serde_derive;
 
 // use serde_json::json;
 // use serde::{Serialize};
