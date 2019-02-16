@@ -1,18 +1,19 @@
-extern crate csv;
-extern crate xml;
+#![feature(futures_api)]
+use std::future::Future;
+use std::io;
 
-extern crate clap; 
 use clap::*; 
 
 #[macro_use]
+// #![feature(unrestricted_attribute_tokens)]
 extern crate serde_derive;
 
-use std::str::FromStr;
-use std::error::Error;
-use std::io;
-use std::process;
-use std::boxed;
-use std::env;
+// use actix_web::{servcer, server::HttpServer, HttpResponse, Path, Responder};
+extern crate actix_web;
+use actix_web::{http, server, Query, HttpResponse, Error};
+
+// use url::{*
+
 // use std::fmt;
 
 // use serde_json::json;
@@ -53,10 +54,28 @@ fn main() {
         ("process", Some(command_matches)) =>{
             let formater = get_formater(command_matches.value_of("out").unwrap());
             let input = io::stdin();
-            process(formater, input);
+            let output = io::stdout();
+            process(formater, input, output);
         },
         ("webserver", Some(webserver_matches)) =>{
-            
+            let port = webserver_matches.value_of("port").unwrap().parse::<i32>().unwrap();
+
+            let sys = actix::System::new("example");  // <- create Actix system
+
+            let address = format!("0.0.0.0:{}", port);
+            server::new(|| actix_web::App::new()
+                .resource(
+                    "/filter",
+                    |r| r
+                        .method(http::Method::GET)
+                        .with(filter)
+                    ))
+                .bind(&address)
+                .expect(&format!("Can not bind to {}.", &address))
+                .start()
+                ;
+
+            sys.run();
         },
         ("", None)   => println!("Use a subcommand : process or webservice. see help for more informations."), 
         _            => unreachable!(), 
@@ -64,14 +83,44 @@ fn main() {
 
 }
 
+// TODO : https://github.com/actix/examples/blob/master/multipart/src/main.rs
+
+#[derive(Deserialize, Debug)]
+struct Info {
+    #[serde(rename = "csvUri")]
+    csv_uri: String,
+    #[serde(default = "default_formater")]
+    format: String,
+}
+
+fn default_formater() -> String {
+    "json".to_string()
+}
 
 
+// http://localhost:8000/12654/alzifg/index.html
+fn filter(info: Query<Info>) -> HttpResponse {
+    // let url = url::Url::parse(&info.csv_uri).unwrap();
+    let mut csv = reqwest::get(&info.csv_uri).unwrap();
+    
+    let response = HttpResponse::Ok()
+        .content_type("application/json")
+        .body("test");
+
+    let formater = get_formater(&info.format);
+          
+    // process(formater, csv, &mut response);
 
 
+    return response;       
+    // actix_web::result(Ok(HttpResponse::Ok()
+    //           .content_type("text/html")
+    //           .body(format!("Hello!"))))
+    //        .responder()
+}
 
 
-
-fn process<R: io::Read>(formater : Box<OutputFormater>, reader : R) {
+fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R, mut writer : W) {
 
     // Build the CSV reader and iterate over each record.
     let mut rdr = csv::ReaderBuilder::new()
@@ -81,8 +130,8 @@ fn process<R: io::Read>(formater : Box<OutputFormater>, reader : R) {
 
     let mut count = 0;
     let line_separator = formater.get_line_separator();
-    
-    println!("{}", formater.get_output_begin());
+
+    writeln!(writer, "{}", formater.get_output_begin()).expect("write error");
 
     for result in rdr.deserialize() {
         count += 1;
@@ -109,7 +158,7 @@ fn process<R: io::Read>(formater : Box<OutputFormater>, reader : R) {
                         
                         let mut jsonline = if count > 1 { String::from(line_separator) } else { String::default() }; 
                         jsonline.push_str(&output);
-                        println!("{}", jsonline);
+                        writeln!(writer, "{}", jsonline).expect("write error");;
                     }
                 }
             }
@@ -124,12 +173,12 @@ fn process<R: io::Read>(formater : Box<OutputFormater>, reader : R) {
 
                 let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
                 jsonline.push_str(&output);
-                println!("{}", jsonline);
+                writeln!(writer, "{}", jsonline).expect("write error");;
             }
         }
     }
 
-    println!("{}", formater.get_output_end());
+    writeln!(writer, "{}", formater.get_output_end()).expect("write error");;
 }
 
 // ***************************************************
@@ -170,7 +219,6 @@ struct ErrorLineOutput {
 
 
 trait OutputFormater {
-    
     fn format_ok_line(&self, line_number : &i32, line: &OkLineOutput) -> String;
     fn format_error_line(&self, line_number : &i32,  err: &ErrorLineOutput) -> String;
 

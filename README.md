@@ -1,5 +1,10 @@
 ``` cmd
-cargo run -- -h
+cargo run -- webserver
+http://localhost:4242/filter?csvUri=https%3A%2F%2Fbeezupcdn.blob.core.windows.net%2Frecruitment%2Fbigfile.csv
+
+
+target\debug\bztest.exe webserver
+https://beezupcdn.blob.core.windows.net/recruitment/bigfile.csv
 
 type bigfile.csv | target\debug\bztest.exe process -o json | grep 1234
 type bigfile.csv | target\debug\bztest.exe process -o text | grep 1234
@@ -16,6 +21,16 @@ type bigfile.csv | target\release\bztest.exe -o text > NUL
 echo timed from %before% to %time%
 
 ```
+
+
+Generate documentation
+``` cmd
+
+cargo doc --open
+
+```
+
+
 
 
 
