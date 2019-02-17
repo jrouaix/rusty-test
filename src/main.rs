@@ -1,17 +1,24 @@
-#![feature(futures_api)]
+#![feature(await_macro, futures_api, async_await)]
+
 use std::future::Future;
 use std::io;
 
-use clap::*; 
+// #[macro_use]
+// use clap::{; 
 
 #[macro_use]
 // #![feature(unrestricted_attribute_tokens)]
 extern crate serde_derive;
 
 // use actix_web::{servcer, server::HttpServer, HttpResponse, Path, Responder};
-extern crate actix_web;
-use actix_web::{http, server, Query, HttpResponse, Error};
+// extern crate actix_web;
 
+use actix_web::{server, http, Query, HttpRequest, HttpResponse, Error, Body, Path};
+use bytes::Bytes;
+use futures::stream::once;
+use actix_web_async_await::{await, compat};
+use std::time::{Instant, Duration};
+use tokio::timer::Delay;
 // use url::{*
 
 // use std::fmt;
@@ -36,16 +43,16 @@ fn main() {
     
     // let args : Vec<String> =  env::args().skip(1).collect(); 
     // let outputType = args.first().unwrap_or(&"json".to_owned());
-    let arguments = App::new("bz-test")
-        .version(crate_version!())
+    let arguments = clap::App::new("bz-test")
+        .version(clap::crate_version!())
         .about("csv to whatever in rust")
-        .author(crate_authors!())
-        .subcommand(SubCommand::with_name("process").about("Run transformation from stdin or a file.")
-            .arg(Arg::with_name("file").short("f").takes_value(true))
-            .arg(Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
+        .author(clap::crate_authors!())
+        .subcommand(clap::SubCommand::with_name("process").about("Run transformation from stdin or a file.")
+            .arg(clap::Arg::with_name("file").short("f").takes_value(true))
+            .arg(clap::Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
         )
-        .subcommand(SubCommand::with_name("webserver").about("Run transformation through a rest API.")
-            .arg(Arg::with_name("port").short("p").takes_value(true).default_value("4242"))
+        .subcommand(clap::SubCommand::with_name("webserver").about("Run transformation through a rest API.")
+            .arg(clap::Arg::with_name("port").short("p").takes_value(true).default_value("4242"))
         )
         .get_matches()
         ;
@@ -69,6 +76,7 @@ fn main() {
                     |r| r
                         .method(http::Method::GET)
                         .with(filter)
+                        // .with(compat(filter))
                     ))
                 .bind(&address)
                 .expect(&format!("Can not bind to {}.", &address))
@@ -98,6 +106,14 @@ fn default_formater() -> String {
 }
 
 
+// async fn filter(info: Query<Info>) -> Result<impl Responder> {
+//     // Wait 2s
+//     await!(Delay::new(Instant::now() + Duration::from_secs(2)))?;
+
+//     // Proceed with normal response
+//     Ok(format!("Hello {}! id:{}", info.csv_uri, info.format))
+// }
+
 // http://localhost:8000/12654/alzifg/index.html
 fn filter(info: Query<Info>) -> HttpResponse {
     // let url = url::Url::parse(&info.csv_uri).unwrap();
@@ -108,11 +124,17 @@ fn filter(info: Query<Info>) -> HttpResponse {
         .body("test");
 
     let formater = get_formater(&info.format);
-          
+
+    // await!(Delay::new(Instant::now() + Duration::from_secs(2)))?;
+
+
+
     // process(formater, csv, &mut response);
+    HttpResponse::Ok()
+        .chunked()
+        .body(Body::Streaming(Box::new(once(Ok(Bytes::from_static(b"data"))))))
 
-
-    return response;       
+    // return response;       
     // actix_web::result(Ok(HttpResponse::Ok()
     //           .content_type("text/html")
     //           .body(format!("Hello!"))))
@@ -309,7 +331,7 @@ struct CsvSourceIterator<'r, R: io::Read>{
 
 impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
     // fn new(rdr : R) -> CsvSourceIterator<'r, R> {
-    //     let csv = Box::new(csv::ReaderBuilder::new())
+    //     let csv = csv::ReaderBuilder::new()
     //         .delimiter(b';')
     //         .flexible(true)
     //         .from_reader(rdr)
