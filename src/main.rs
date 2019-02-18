@@ -75,8 +75,8 @@ fn main() {
                     "/filter",
                     |r| r
                         .method(http::Method::GET)
-                        .with(filter)
-                        // .with(compat(filter))
+                        // .with(filter)
+                        .with(compat(filter))
                     ))
                 .bind(&address)
                 .expect(&format!("Can not bind to {}.", &address))
@@ -106,7 +106,7 @@ fn default_formater() -> String {
 }
 
 
-// async fn filter(info: Query<Info>) -> Result<impl Responder> {
+// async fn filter(info: Query<Info>) -> Result<String, Error> {
 //     // Wait 2s
 //     await!(Delay::new(Instant::now() + Duration::from_secs(2)))?;
 
@@ -336,7 +336,7 @@ impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
     //         .flexible(true)
     //         .from_reader(rdr)
     //         .deserialize();
-        
+            
     //     CsvSourceIterator { iterator : csv }
     // }
 
