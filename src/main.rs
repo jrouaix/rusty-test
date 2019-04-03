@@ -1,48 +1,23 @@
 #![feature(await_macro, futures_api, async_await)]
 
-use std::future::Future;
 use std::io;
 
-// #[macro_use]
-// use clap::{; 
-
 #[macro_use]
-// #![feature(unrestricted_attribute_tokens)]
 extern crate serde_derive;
 
-// use actix_web::{servcer, server::HttpServer, HttpResponse, Path, Responder};
-// extern crate actix_web;
+use actix_web::{server, http, Query, /*HttpRequest, HttpResponse, Error, Body, Path,*/ Responder, middleware};
 
-use actix_web::{server, http, Query, HttpRequest, HttpResponse, Error, Body, Path};
-use bytes::Bytes;
-use futures::stream::once;
-use actix_web_async_await::{await, compat};
-use std::time::{Instant, Duration};
-use tokio::timer::Delay;
-// use url::{*
+// use bytes::Bytes;
+// use std::future::Future;
+// use futures::stream::once;
+// use actix_web_async_await::{await, compat};
+// use std::time::{Instant, Duration};
+// use tokio::timer::Delay;
 
-// use std::fmt;
 
-// use serde_json::json;
-// use serde::{Serialize};
-// use serde_json::Result;
-
-// use std::env;
-// env::args()
-
-/*
-## Part 2 - API
-
-### Step 1
-
-Create an Api project that can receive HTTP POST and GET requests on /filter?csvUri={<CSV_URI>}.
-The payload response should be a json object as described in Part1
-*/
 
 fn main() {
     
-    // let args : Vec<String> =  env::args().skip(1).collect(); 
-    // let outputType = args.first().unwrap_or(&"json".to_owned());
     let arguments = clap::App::new("bz-test")
         .version(clap::crate_version!())
         .about("csv to whatever in rust")
@@ -61,8 +36,8 @@ fn main() {
         ("process", Some(command_matches)) =>{
             let formater = get_formater(command_matches.value_of("out").unwrap());
             let input = io::stdin();
-            let output = io::stdout();
-            process(formater, input, output);
+            let mut output = io::stdout();
+            process(formater, input, &mut output);
         },
         ("webserver", Some(webserver_matches)) =>{
             let port = webserver_matches.value_of("port").unwrap().parse::<i32>().unwrap();
@@ -71,12 +46,13 @@ fn main() {
 
             let address = format!("0.0.0.0:{}", port);
             server::new(|| actix_web::App::new()
+                .middleware(middleware::Logger::default())
                 .resource(
                     "/filter",
                     |r| r
                         .method(http::Method::GET)
-                        // .with(filter)
-                        .with(compat(filter))
+                        .with(filter)
+                        // .with(compat(filter))
                     ))
                 .bind(&address)
                 .expect(&format!("Can not bind to {}.", &address))
@@ -85,10 +61,9 @@ fn main() {
 
             sys.run();
         },
-        ("", None)   => println!("Use a subcommand : process or webservice. see help for more informations."), 
+        (_, None)   => println!("Use a subcommand : process or webservice. see help for more informations."), 
         _            => unreachable!(), 
     }
-
 }
 
 // TODO : https://github.com/actix/examples/blob/master/multipart/src/main.rs
@@ -101,9 +76,7 @@ struct Info {
     format: String,
 }
 
-fn default_formater() -> String {
-    "json".to_string()
-}
+fn default_formater() -> String { "json".to_string() }
 
 
 // async fn filter(info: Query<Info>) -> Result<String, Error> {
@@ -114,25 +87,32 @@ fn default_formater() -> String {
 //     Ok(format!("Hello {}! id:{}", info.csv_uri, info.format))
 // }
 
-// http://localhost:8000/12654/alzifg/index.html
-fn filter(info: Query<Info>) -> HttpResponse {
-    // let url = url::Url::parse(&info.csv_uri).unwrap();
-    let mut csv = reqwest::get(&info.csv_uri).unwrap();
-    
-    let response = HttpResponse::Ok()
-        .content_type("application/json")
-        .body("test");
 
+// https://docs.rs/actix-web/0.4.5/src/actix_web/fs.rs.html#166-231
+// http://localhost:8000/12654/alzifg/index.html
+fn filter(info: Query<Info>) -> impl Responder {
+
+    let csv = reqwest::get(&info.csv_uri).unwrap();
     let formater = get_formater(&info.format);
+    let mut buffer: Vec<u8> = vec!{};
+
+    process(formater, csv, &mut buffer);
+
+    let output = std::str::from_utf8(&buffer[..]).unwrap();
+    output.to_string() 
+
+    // return response;
+
+   
 
     // await!(Delay::new(Instant::now() + Duration::from_secs(2)))?;
 
 
 
     // process(formater, csv, &mut response);
-    HttpResponse::Ok()
-        .chunked()
-        .body(Body::Streaming(Box::new(once(Ok(Bytes::from_static(b"data"))))))
+    // HttpResponse::Ok()
+    //     .chunked()
+    //     .body(Body::Streaming(Box::new(once(Ok(Bytes::from_static(b"data"))))))
 
     // return response;       
     // actix_web::result(Ok(HttpResponse::Ok()
@@ -142,7 +122,7 @@ fn filter(info: Query<Info>) -> HttpResponse {
 }
 
 
-fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R, mut writer : W) {
+fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R, writer : &mut W) {
 
     // Build the CSV reader and iterate over each record.
     let mut rdr = csv::ReaderBuilder::new()
@@ -159,8 +139,8 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
         count += 1;
 
         match result {
-            Ok(content) => {
-                let record: SourceLine = content;
+            Ok(record) => {
+                let record: SourceLine = record;
                 if let (Some(c), Some(d)) = (record.column_c, record.column_d) 
                 {
                     let sum = c + d;
@@ -176,7 +156,7 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
                             sum_cd: record.column_c.unwrap() + record.column_c.unwrap(),
                         };
 
-                        let output = formater.format_ok_line(&count, &output);
+                        let output = formater.format_ok_line(&output);
                         
                         let mut jsonline = if count > 1 { String::from(line_separator) } else { String::default() }; 
                         jsonline.push_str(&output);
@@ -191,7 +171,7 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
                     error_message: format!("{:?}", err),
                 };
 
-                let output = formater.format_error_line(&count, &output);
+                let output = formater.format_error_line(&output);
 
                 let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
                 jsonline.push_str(&output);
@@ -209,10 +189,9 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
 
 fn get_formater(output_type_name: &str) -> Box<OutputFormater> 
 {
-    let formater : Box<OutputFormater>;
     match output_type_name {
-        "json" => return Box::new(JsonOutputFormater{}),
-        "text" => return Box::new(TextOutputFormater{}),
+        "json" => Box::new(JsonOutputFormater{}),
+        "text" => Box::new(TextOutputFormater{}),
         _ => unimplemented!(),
     }
 }
@@ -241,18 +220,18 @@ struct ErrorLineOutput {
 
 
 trait OutputFormater {
-    fn format_ok_line(&self, line_number : &i32, line: &OkLineOutput) -> String;
-    fn format_error_line(&self, line_number : &i32,  err: &ErrorLineOutput) -> String;
+    fn format_ok_line(&self, line: &OkLineOutput) -> String;
+    fn format_error_line(&self, err: &ErrorLineOutput) -> String;
 
     fn get_line_separator(&self) -> &'static str;
     fn get_output_begin(&self) -> &'static str;
     fn get_output_end(&self) -> &'static str;
 }
 
-enum OutFormater {
-    Json,
-    Text
-}
+// enum OutFormater {
+//     Json,
+//     Text
+// }
 
 // impl FromStr for OutFormater {
 //     type Err = ();
@@ -271,12 +250,12 @@ enum OutFormater {
 struct JsonOutputFormater { }
 
 impl OutputFormater for JsonOutputFormater{
-    fn format_ok_line(&self, line_number : &i32, line: &OkLineOutput) -> String{
+    fn format_ok_line(&self, line: &OkLineOutput) -> String{
         serde_json::to_string(line)
             .unwrap_or_else(|e| panic!(e)) // should not happen
     }
 
-    fn format_error_line(&self, line_number : &i32,  err: &ErrorLineOutput) -> String{
+    fn format_error_line(&self,  err: &ErrorLineOutput) -> String{
         serde_json::to_string(err)
             .unwrap_or_else(|e| panic!(e)) // should not happen
     }
@@ -290,11 +269,11 @@ impl OutputFormater for JsonOutputFormater{
 struct TextOutputFormater { }
 
 impl OutputFormater for TextOutputFormater{
-    fn format_ok_line(&self, line_number : &i32, line: &OkLineOutput) -> String{
+    fn format_ok_line(&self, line: &OkLineOutput) -> String{
         format!("line #{} : {} - {}", line.line_number, line.concat_ab, line.sum_cd)
     }
 
-    fn format_error_line(&self, line_number : &i32,  err: &ErrorLineOutput) -> String{
+    fn format_error_line(&self, err: &ErrorLineOutput) -> String{
         format!("error as line {}: {}", err.line_number, err.error_message )
     }
 
@@ -330,7 +309,7 @@ struct CsvSourceIterator<'r, R: io::Read>{
 }
 
 impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
-    // fn new(rdr : R) -> CsvSourceIterator<'r, R> {
+    // fn new(rdr : &'r R) -> CsvSourceIterator<'r, R> {
     //     let csv = csv::ReaderBuilder::new()
     //         .delimiter(b';')
     //         .flexible(true)
@@ -367,7 +346,7 @@ impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
 }
 
 
-// impl<R: io::Read> Iterator for CsvSourceIterator<R>{
+// impl<'r, R: io::Read> Iterator for CsvSourceIterator<'r, R>{
 //     type Item = SourceLine;
 
 //     fn next(&mut self) -> Option<Self::Item>{
@@ -399,7 +378,3 @@ impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
 //         }
 //     }
 // }
-
-// ***************************************************
-//                      SOURCE
-// ***************************************************
