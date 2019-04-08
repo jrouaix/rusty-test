@@ -157,10 +157,7 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
                         };
 
                         let output = formater.format_ok_line(&output);
-                        
-                        let mut jsonline = if count > 1 { String::from(line_separator) } else { String::default() }; 
-                        jsonline.push_str(&output);
-                        writeln!(writer, "{}", jsonline).expect("write error");;
+                        write_line(writer, output, &count, line_separator);
                     }
                 }
             }
@@ -172,15 +169,19 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
                 };
 
                 let output = formater.format_error_line(&output);
-
-                let mut jsonline = if count > 1 { String::from(", ") } else { String::from("") }; 
-                jsonline.push_str(&output);
-                writeln!(writer, "{}", jsonline).expect("write error");;
+                write_line(writer, output, &count, line_separator);
             }
         }
     }
 
     writeln!(writer, "{}", formater.get_output_end()).expect("write error");;
+}
+
+fn write_line<W: io::Write>(writer: &mut W, output: String, line_count: &i32, line_separator: &str)
+{
+    let mut output_line = if *line_count > 1 { String::from(line_separator) } else { String::default() };  
+    output_line.push_str(&output);
+    writeln!(writer, "{}",  output_line).expect("write error");        
 }
 
 // ***************************************************

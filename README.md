@@ -10,14 +10,16 @@ type bigfile.csv | target\debug\bztest.exe process -o json | grep 1234
 type bigfile.csv | target\debug\bztest.exe process -o text | grep 1234
 
 set before=%time%
-type bigfile.csv | target\debug\bztest.exe > NUL
+type bigfile.csv | target\debug\bztest.exe process -o json > NUL
 echo timed from %before% to %time%
+
+
 
 
 cargo build --release
 
 set before=%time%
-type bigfile.csv | target\release\bztest.exe -o text > NUL
+type bigfile.csv | target\release\bztest.exe process -o text > NUL
 echo timed from %before% to %time%
 
 ```
