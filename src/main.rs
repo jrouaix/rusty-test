@@ -92,6 +92,9 @@ fn default_formater() -> String { "json".to_string() }
 // http://localhost:8000/12654/alzifg/index.html
 fn filter(info: Query<Info>) -> impl Responder {
 
+// TO READ !!!
+//https://cetra3.github.io/blog/face-detection-with-actix-web/
+
     let csv = reqwest::get(&info.csv_uri).unwrap();
     let formater = get_formater(&info.format);
     let mut buffer: Vec<u8> = vec!{};
@@ -99,7 +102,7 @@ fn filter(info: Query<Info>) -> impl Responder {
     process(formater, csv, &mut buffer);
 
     let output = std::str::from_utf8(&buffer[..]).unwrap();
-    output.to_string() 
+    output.to_string()
 
     // return response;
 
@@ -124,18 +127,14 @@ fn filter(info: Query<Info>) -> impl Responder {
 
 fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R, writer : &mut W) {
 
-    // Build the CSV reader and iterate over each record.
-    let mut rdr = csv::ReaderBuilder::new()
-        .delimiter(b';')
-        .flexible(true)
-        .from_reader(reader);
+    let cvs_iter = CsvSourceIterator::new(reader);
 
     let mut count = 0;
     let line_separator = formater.get_line_separator();
 
     writeln!(writer, "{}", formater.get_output_begin()).expect("write error");
 
-    for result in rdr.deserialize() {
+    for result in cvs_iter {
         count += 1;
 
         match result {
@@ -302,80 +301,31 @@ struct SourceLine {
     other_column: Option<String>
 }
 
-    // iterator: Box<csv::DeserializeRecordsIter<'r, &'r mut R, SourceLine>>,
-    // iterator:     csv::DeserializeRecordsIter<'r, &'r mut R, SourceLine>,
-
-struct CsvSourceIterator<'r, R: io::Read>{
-    iterator: csv::DeserializeRecordsIter<'r, R, SourceLine>,
+struct CsvSourceIterator<R: io::Read>{
+    iterator: csv::DeserializeRecordsIntoIter<R, SourceLine>,
 }
 
-impl<'r, R: io::Read> CsvSourceIterator<'r, R> {
-    // fn new(rdr : &'r R) -> CsvSourceIterator<'r, R> {
-    //     let csv = csv::ReaderBuilder::new()
-    //         .delimiter(b';')
-    //         .flexible(true)
-    //         .from_reader(rdr)
-    //         .deserialize();
-            
-    //     CsvSourceIterator { iterator : csv }
-    // }
+impl<R: io::Read> CsvSourceIterator<R> {
+    fn new(rdr : R) -> CsvSourceIterator<R> {
+        let mut reader = csv::ReaderBuilder::new()
+            .delimiter(b';')
+            .flexible(true)
+            .from_reader(rdr)
+            ;
 
-    // fn new(rdr : R) -> CsvSourceIterator<'r, R> {
-    //     // let test= Box::new(5);
+        let csv = reader.into_deserialize();
 
-    //     let mut csv1 = Box::new(csv::ReaderBuilder::new());
-    //     let csv2 = Box::new(csv1.delimiter(b';'));
-    //     let csv3 = Box::new(csv2.flexible(true));
-    //     let mut csv4 = Box::new(csv3.from_reader(rdr));
-    //     let csv5 = Box<T + 'r>::new(csv4.deserialize();
-            
-    //     CsvSourceIterator { iterator : csv5 }
-    // }
-
-    // fn new(rdr : &'r mut R) -> CsvSourceIterator<'r, R> {
-    //     let mut csv1 = csv::ReaderBuilder::new();
-    //     let csv2 = csv1.delimiter(b';');
-    //     let csv3 = csv2.flexible(true);
-    //     let mut csv4 = csv3.from_reader(rdr);
-    //     let csv5 = csv4.deserialize();
-        
-    //     // let d  = ;
-    //     // //let d = csv.deserialize();
-
-    //     CsvSourceIterator { iterator : csv5 }
-    // }
+        CsvSourceIterator { iterator : csv }
+    }
 }
 
 
-// impl<'r, R: io::Read> Iterator for CsvSourceIterator<'r, R>{
-//     type Item = SourceLine;
+impl<R: io::Read> Iterator for CsvSourceIterator<R>{
+    type Item = Result<SourceLine, csv::Error>;
 
-//     fn next(&mut self) -> Option<Self::Item>{
-//         let next = self.reader.next();
-        
-//         None
-//         // reader
-//     }
-// }
+    fn next(&mut self) -> Option<Self::Item>{
+        let next = self.iterator.next();
+        next
+    }
+}
 
-// pub fn from_reader<R: io::Read>(&self, rdr: R) -> Reader<R> {
-//         Reader::new(self, rdr)
-//     }
-
-// impl Iterator for Source {
-//     // we will be counting with usize
-//     type Item = SourceLine;
-
-//     // next() is the only required method
-//     fn next(&mut self) -> Option<usize> {
-//         // Increment our count. This is why we started at zero.
-//         self.count += 1;
-
-//         // Check to see if we've finished counting or not.
-//         if self.count < 6 {
-//             Some(self.count)
-//         } else {
-//             None
-//         }
-//     }
-// }
