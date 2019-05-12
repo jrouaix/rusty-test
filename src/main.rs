@@ -90,11 +90,67 @@ fn default_formater() -> String { "json".to_string() }
 
 // https://docs.rs/actix-web/0.4.5/src/actix_web/fs.rs.html#166-231
 // http://localhost:8000/12654/alzifg/index.html
-fn filter(info: Query<Info>) -> impl Responder {
+
+/*
+https://actix.rs/docs/response/
+https://www.google.com/search?q=rust+future+stream+to+iterator
+https://docs.rs/futures/0.1/futures/stream/fn.iter.html
+*/
+
+/*
+https://users.rust-lang.org/t/adapter-for-transforming-io-write-into-stream/27324
+https://stackoverflow.com/questions/55708392/how-to-send-data-through-a-futures-stream-by-writing-through-the-iowrite-trait/55764246#55764246
+
 
 // TO READ !!!
 //https://cetra3.github.io/blog/face-detection-with-actix-web/
 
+*/
+
+// https://stackoverflow.com/questions/56023741/how-to-stream-iowrite-into-an-actix-web-response
+
+// use futures::{
+//     sink::{Sink, Wait},
+//     sync::mpsc,
+// }; // 0.1.26
+// use std::{thread};
+
+// fn generate(_output: &mut io::Write) {
+//     // ...
+// }
+
+// struct MyWrite<T>(Wait<mpsc::Sender<T>>);
+
+// impl<T> io::Write for MyWrite<T>
+// where
+//     T: for<'a> From<&'a [u8]> + Send + Sync + 'static,
+// {
+//     fn write(&mut self, d: &[u8]) -> io::Result<usize> {
+//         let len = d.len();
+//         self.0
+//             .send(d.into())
+//             .map(|()| len)
+//             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+//     }
+
+//     fn flush(&mut self) -> io::Result<()> {
+//         self.0
+//             .flush()
+//             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+//     }
+// }
+
+// fn foo() -> impl futures::Stream<Item = Vec<u8>, Error = ()> {
+//     let (tx, rx) = mpsc::channel(5);
+
+//     let mut w = MyWrite(tx.wait());
+
+//     thread::spawn(move || generate(&mut w));
+
+//     rx
+// }
+
+fn filter(info: Query<Info>) -> impl Responder {
     let csv = reqwest::get(&info.csv_uri).unwrap();
     let formater = get_formater(&info.format);
     let mut buffer: Vec<u8> = vec!{};
@@ -103,6 +159,9 @@ fn filter(info: Query<Info>) -> impl Responder {
 
     let output = std::str::from_utf8(&buffer[..]).unwrap();
     output.to_string()
+}
+
+
 
     // return response;
 
@@ -122,7 +181,7 @@ fn filter(info: Query<Info>) -> impl Responder {
     //           .content_type("text/html")
     //           .body(format!("Hello!"))))
     //        .responder()
-}
+
 
 
 fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R, writer : &mut W) {
@@ -307,7 +366,7 @@ struct CsvSourceIterator<R: io::Read>{
 
 impl<R: io::Read> CsvSourceIterator<R> {
     fn new(rdr : R) -> CsvSourceIterator<R> {
-        let mut reader = csv::ReaderBuilder::new()
+        let reader = csv::ReaderBuilder::new()
             .delimiter(b';')
             .flexible(true)
             .from_reader(rdr)
