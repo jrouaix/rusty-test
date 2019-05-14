@@ -1,13 +1,13 @@
 #![feature(await_macro, async_await)]
 
-use std::io;
+use std::{fmt, fmt::Display, fmt::Formatter, io};
 
 #[macro_use]
 extern crate serde_derive;
 
 use actix_web::{
     http, middleware, server, Query,
-    /*HttpRequest, HttpResponse, Error, Body, Path,*/ Responder,
+    /*HttpRequest, HttpResponse, Error, Body, Path,*/ Responder, Result,
 };
 
 // use bytes::Bytes;
@@ -50,7 +50,7 @@ fn main() {
 
     match arguments.subcommand() {
         ("process", Some(command_matches)) => {
-            let formater = get_formater(command_matches.value_of("out").unwrap());
+            let formater = get_formater(command_matches.value_of("out").unwrap()).unwrap();
             let input = io::stdin();
             let mut output = io::stdout();
             process(formater, input, &mut output);
@@ -77,7 +77,8 @@ fn main() {
             .expect(&format!("Can not bind to {}.", &address))
             .start();
 
-            sys.run().expect("Something went wrong");
+
+            sys.run(); //.expect("Something went wrong"); <- for actix 0.8
         }
         (_, None) => {
             println!("Use a subcommand : process or webservice. see help for more informations.")
@@ -87,6 +88,20 @@ fn main() {
 }
 
 // TODO : https://github.com/actix/examples/blob/master/multipart/src/main.rs
+
+#[derive(Debug)]
+enum BzError {
+    FormatterNotExisting(String),
+}
+
+// could be better : https://github.com/actix/actix-website/blob/master/content/docs/errors.md : See "Recommended practices in error handling"
+impl Display for BzError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            BzError::FormatterNotExisting(s) => write!(f, "Output formatter '{}' not supported", s),
+        }
+    }
+}
 
 #[derive(Deserialize, Debug)]
 struct Info {
@@ -172,15 +187,28 @@ https://stackoverflow.com/questions/55708392/how-to-send-data-through-a-futures-
 //     rx
 // }
 
-fn filter(info: Query<Info>) -> impl Responder {
-    let csv = reqwest::get(&info.csv_uri).unwrap();
-    let formater = get_formater(&info.format);
+// struct MyError{}
+// impl From<reqwest::Error> for MyError{
+//     fn from(err: reqwest::Error) -> MyError {
+//         MyError{}
+//     }
+// }
+// impl From<std::str::Utf8Error> for MyError{
+//     fn from(err: std::str::Utf8Error) -> MyError {
+//         MyError{}
+//     }
+// }
+
+
+fn filter(info: Query<Info>) -> Result<impl Responder> {
+    let csv = reqwest::get(&info.csv_uri).map_err(|e| actix_web::error::ErrorBadRequest(e))?;
+    let formater = get_formater(&info.format).map_err(|e| actix_web::error::ErrorBadRequest(e))?;
     let mut buffer: Vec<u8> = vec![];
 
     process(formater, csv, &mut buffer);
 
-    let output = std::str::from_utf8(&buffer[..]).unwrap();
-    output.to_string()
+    let output = std::str::from_utf8(&buffer[..])?;
+    Ok(output.to_string())
 }
 
 // return response;
@@ -264,11 +292,11 @@ fn write_line<W: io::Write>(
 //                      TARGET
 // ***************************************************
 
-fn get_formater(output_type_name: &str) -> Box<OutputFormater> {
+fn get_formater(output_type_name: &str) -> Result<Box<OutputFormater>, BzError> {
     match output_type_name {
-        "json" => Box::new(JsonOutputFormater {}),
-        "text" => Box::new(TextOutputFormater {}),
-        _ => unimplemented!(),
+        "json" => Ok(Box::new(JsonOutputFormater {})),
+        "text" => Ok(Box::new(TextOutputFormater {})),
+        _ => Err(BzError::FormatterNotExisting(output_type_name.to_owned())),
     }
 }
 
