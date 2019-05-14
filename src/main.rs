@@ -1,4 +1,4 @@
-#![feature(await_macro, futures_api, async_await)]
+#![feature(await_macro, async_await)]
 
 use std::io;
 
@@ -59,7 +59,7 @@ fn main() {
                 .start()
                 ;
 
-            sys.run();
+            sys.run().expect("Something went wrong");
         },
         (_, None)   => println!("Use a subcommand : process or webservice. see help for more informations."), 
         _            => unreachable!(), 
