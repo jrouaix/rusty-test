@@ -5,7 +5,10 @@ use std::io;
 #[macro_use]
 extern crate serde_derive;
 
-use actix_web::{server, http, Query, /*HttpRequest, HttpResponse, Error, Body, Path,*/ Responder, middleware};
+use actix_web::{
+    http, middleware, server, Query,
+    /*HttpRequest, HttpResponse, Error, Body, Path,*/ Responder,
+};
 
 // use bytes::Bytes;
 // use std::future::Future;
@@ -15,54 +18,71 @@ use actix_web::{server, http, Query, /*HttpRequest, HttpResponse, Error, Body, P
 // use tokio::timer::Delay;
 
 
-
 fn main() {
-    
+
     let arguments = clap::App::new("bz-test")
         .version(clap::crate_version!())
         .about("csv to whatever in rust")
         .author(clap::crate_authors!())
-        .subcommand(clap::SubCommand::with_name("process").about("Run transformation from stdin or a file.")
-            .arg(clap::Arg::with_name("file").short("f").takes_value(true))
-            .arg(clap::Arg::with_name("out").short("o").takes_value(true).default_value("json").possible_values(&["json", "text"]))
+        .subcommand(
+            clap::SubCommand::with_name("process")
+                .about("Run transformation from stdin or a file.")
+                .arg(clap::Arg::with_name("file").short("f").takes_value(true))
+                .arg(
+                    clap::Arg::with_name("out")
+                        .short("o")
+                        .takes_value(true)
+                        .default_value("json")
+                        .possible_values(&["json", "text"]),
+                ),
         )
-        .subcommand(clap::SubCommand::with_name("webserver").about("Run transformation through a rest API.")
-            .arg(clap::Arg::with_name("port").short("p").takes_value(true).default_value("4242"))
+        .subcommand(
+            clap::SubCommand::with_name("webserver")
+                .about("Run transformation through a rest API.")
+                .arg(
+                    clap::Arg::with_name("port")
+                        .short("p")
+                        .takes_value(true)
+                        .default_value("4242"),
+                ),
         )
-        .get_matches()
-        ;
+        .get_matches();
 
     match arguments.subcommand() {
-        ("process", Some(command_matches)) =>{
+        ("process", Some(command_matches)) => {
             let formater = get_formater(command_matches.value_of("out").unwrap());
             let input = io::stdin();
             let mut output = io::stdout();
             process(formater, input, &mut output);
-        },
-        ("webserver", Some(webserver_matches)) =>{
-            let port = webserver_matches.value_of("port").unwrap().parse::<i32>().unwrap();
+        }
+        ("webserver", Some(webserver_matches)) => {
+            let port = webserver_matches
+                .value_of("port")
+                .unwrap()
+                .parse::<i32>()
+                .unwrap();
 
-            let sys = actix::System::new("example");  // <- create Actix system
+            let sys = actix::System::new("example"); // <- create Actix system
 
             let address = format!("0.0.0.0:{}", port);
-            server::new(|| actix_web::App::new()
-                .middleware(middleware::Logger::default())
-                .resource(
-                    "/filter",
-                    |r| r
-                        .method(http::Method::GET)
-                        .with(filter)
-                        // .with(compat(filter))
-                    ))
-                .bind(&address)
-                .expect(&format!("Can not bind to {}.", &address))
-                .start()
-                ;
+            server::new(|| {
+                actix_web::App::new()
+                    .middleware(middleware::Logger::default())
+                    .resource(
+                        "/filter",
+                        |r| r.method(http::Method::GET).with(filter), // .with(compat(filter))
+                    )
+            })
+            .bind(&address)
+            .expect(&format!("Can not bind to {}.", &address))
+            .start();
 
             sys.run().expect("Something went wrong");
-        },
-        (_, None)   => println!("Use a subcommand : process or webservice. see help for more informations."), 
-        _            => unreachable!(), 
+        }
+        (_, None) => {
+            println!("Use a subcommand : process or webservice. see help for more informations.")
+        }
+        _ => unreachable!(),
     }
 }
 
@@ -76,7 +96,9 @@ struct Info {
     format: String,
 }
 
-fn default_formater() -> String { "json".to_string() }
+fn default_formater() -> String {
+    "json".to_string()
+}
 
 
 // async fn filter(info: Query<Info>) -> Result<String, Error> {
@@ -153,7 +175,7 @@ https://stackoverflow.com/questions/55708392/how-to-send-data-through-a-futures-
 fn filter(info: Query<Info>) -> impl Responder {
     let csv = reqwest::get(&info.csv_uri).unwrap();
     let formater = get_formater(&info.format);
-    let mut buffer: Vec<u8> = vec!{};
+    let mut buffer: Vec<u8> = vec![];
 
     process(formater, csv, &mut buffer);
 
@@ -161,31 +183,20 @@ fn filter(info: Query<Info>) -> impl Responder {
     output.to_string()
 }
 
+// return response;
+// await!(Delay::new(Instant::now() + Duration::from_secs(2)))?;
+// process(formater, csv, &mut response);
+// HttpResponse::Ok()
+//     .chunked()
+//     .body(Body::Streaming(Box::new(once(Ok(Bytes::from_static(b"data"))))))
 
+// return response;
+// actix_web::result(Ok(HttpResponse::Ok()
+//           .content_type("text/html")
+//           .body(format!("Hello!"))))
+//        .responder()
 
-    // return response;
-
-   
-
-    // await!(Delay::new(Instant::now() + Duration::from_secs(2)))?;
-
-
-
-    // process(formater, csv, &mut response);
-    // HttpResponse::Ok()
-    //     .chunked()
-    //     .body(Body::Streaming(Box::new(once(Ok(Bytes::from_static(b"data"))))))
-
-    // return response;       
-    // actix_web::result(Ok(HttpResponse::Ok()
-    //           .content_type("text/html")
-    //           .body(format!("Hello!"))))
-    //        .responder()
-
-
-
-fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R, writer : &mut W) {
-
+fn process<R: io::Read, W: io::Write>(formater: Box<OutputFormater>, reader: R, writer: &mut W) {
     let cvs_iter = CsvSourceIterator::new(reader);
 
     let mut count = 0;
@@ -199,14 +210,13 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
         match result {
             Ok(record) => {
                 let record: SourceLine = record;
-                if let (Some(c), Some(d)) = (record.column_c, record.column_d) 
-                {
+                if let (Some(c), Some(d)) = (record.column_c, record.column_d) {
                     let sum = c + d;
                     if sum > 100 {
                         let empty = String::default();
                         let a = record.column_a.as_ref().unwrap_or(&empty);
                         let b = record.column_b.as_ref().unwrap_or(&empty);
-                        
+
                         let output = OkLineOutput {
                             line_number: count,
                             line_type: String::from("ok"),
@@ -235,22 +245,29 @@ fn process<R: io::Read, W: io::Write>(formater : Box<OutputFormater>, reader : R
     writeln!(writer, "{}", formater.get_output_end()).expect("write error");;
 }
 
-fn write_line<W: io::Write>(writer: &mut W, output: String, line_count: &i32, line_separator: &str)
-{
-    let mut output_line = if *line_count > 1 { String::from(line_separator) } else { String::default() };  
+fn write_line<W: io::Write>(
+    writer: &mut W,
+    output: String,
+    line_count: &i32,
+    line_separator: &str,
+) {
+    let mut output_line = if *line_count > 1 {
+        String::from(line_separator)
+    } else {
+        String::default()
+    };
     output_line.push_str(&output);
-    writeln!(writer, "{}",  output_line).expect("write error");        
+    writeln!(writer, "{}", output_line).expect("write error");
 }
 
 // ***************************************************
 //                      TARGET
 // ***************************************************
 
-fn get_formater(output_type_name: &str) -> Box<OutputFormater> 
-{
+fn get_formater(output_type_name: &str) -> Box<OutputFormater> {
     match output_type_name {
-        "json" => Box::new(JsonOutputFormater{}),
-        "text" => Box::new(TextOutputFormater{}),
+        "json" => Box::new(JsonOutputFormater {}),
+        "text" => Box::new(TextOutputFormater {}),
         _ => unimplemented!(),
     }
 }
@@ -306,39 +323,52 @@ trait OutputFormater {
 
 // Json
 
-struct JsonOutputFormater { }
+struct JsonOutputFormater {}
 
-impl OutputFormater for JsonOutputFormater{
-    fn format_ok_line(&self, line: &OkLineOutput) -> String{
-        serde_json::to_string(line)
-            .unwrap_or_else(|e| panic!(e)) // should not happen
+impl OutputFormater for JsonOutputFormater {
+    fn format_ok_line(&self, line: &OkLineOutput) -> String {
+        serde_json::to_string(line).unwrap_or_else(|e| panic!(e)) // should not happen
     }
 
-    fn format_error_line(&self,  err: &ErrorLineOutput) -> String{
-        serde_json::to_string(err)
-            .unwrap_or_else(|e| panic!(e)) // should not happen
+    fn format_error_line(&self, err: &ErrorLineOutput) -> String {
+        serde_json::to_string(err).unwrap_or_else(|e| panic!(e)) // should not happen
     }
 
-    fn get_line_separator(&self) -> &'static str { "," }
-    fn get_output_begin(&self) -> &'static str { "[" }
-    fn get_output_end(&self) -> &'static str { "]" }
+    fn get_line_separator(&self) -> &'static str {
+        ","
+    }
+    fn get_output_begin(&self) -> &'static str {
+        "["
+    }
+    fn get_output_end(&self) -> &'static str {
+        "]"
+    }
 }
 
 // Text
-struct TextOutputFormater { }
+struct TextOutputFormater {}
 
-impl OutputFormater for TextOutputFormater{
-    fn format_ok_line(&self, line: &OkLineOutput) -> String{
-        format!("line #{} : {} - {}", line.line_number, line.concat_ab, line.sum_cd)
+impl OutputFormater for TextOutputFormater {
+    fn format_ok_line(&self, line: &OkLineOutput) -> String {
+        format!(
+            "line #{} : {} - {}",
+            line.line_number, line.concat_ab, line.sum_cd
+        )
     }
 
-    fn format_error_line(&self, err: &ErrorLineOutput) -> String{
-        format!("error as line {}: {}", err.line_number, err.error_message )
+    fn format_error_line(&self, err: &ErrorLineOutput) -> String {
+        format!("error as line {}: {}", err.line_number, err.error_message)
     }
 
-    fn get_line_separator(&self) -> &'static str { "" }
-    fn get_output_begin(&self) -> &'static str { "" }
-    fn get_output_end(&self) -> &'static str { "" }
+    fn get_line_separator(&self) -> &'static str {
+        ""
+    }
+    fn get_output_begin(&self) -> &'static str {
+        ""
+    }
+    fn get_output_end(&self) -> &'static str {
+        ""
+    }
 }
 
 // ***************************************************
@@ -349,40 +379,38 @@ impl OutputFormater for TextOutputFormater{
 struct SourceLine {
     column: Option<String>,
     #[serde(rename = "columnA")]
-    column_a: Option<String>, 
+    column_a: Option<String>,
     #[serde(rename = "columnB")]
     column_b: Option<String>,
     #[serde(rename = "columnC")]
-    column_c : Option<i64>,
+    column_c: Option<i64>,
     #[serde(rename = "columnD")]
     column_d: Option<i64>,
     #[serde(rename = "otherColumn")]
-    other_column: Option<String>
+    other_column: Option<String>,
 }
 
-struct CsvSourceIterator<R: io::Read>{
+struct CsvSourceIterator<R: io::Read> {
     iterator: csv::DeserializeRecordsIntoIter<R, SourceLine>,
 }
 
 impl<R: io::Read> CsvSourceIterator<R> {
-    fn new(rdr : R) -> CsvSourceIterator<R> {
+    fn new(rdr: R) -> CsvSourceIterator<R> {
         let reader = csv::ReaderBuilder::new()
             .delimiter(b';')
             .flexible(true)
-            .from_reader(rdr)
-            ;
+            .from_reader(rdr);
 
         let csv = reader.into_deserialize();
 
-        CsvSourceIterator { iterator : csv }
+        CsvSourceIterator { iterator: csv }
     }
 }
 
-
-impl<R: io::Read> Iterator for CsvSourceIterator<R>{
+impl<R: io::Read> Iterator for CsvSourceIterator<R> {
     type Item = Result<SourceLine, csv::Error>;
 
-    fn next(&mut self) -> Option<Self::Item>{
+    fn next(&mut self) -> Option<Self::Item> {
         let next = self.iterator.next();
         next
     }
