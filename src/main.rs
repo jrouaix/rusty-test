@@ -74,7 +74,7 @@ fn main() {
                     )
             })
             .bind(&address)
-            .expect(&format!("Can not bind to {}.", &address))
+            .unwrap_or_else(|_| panic!("Can not bind to {}.", &address))
             .start();
 
 
@@ -86,6 +86,7 @@ fn main() {
         _ => unreachable!(),
     }
 }
+
 
 // TODO : https://github.com/actix/examples/blob/master/multipart/src/main.rs
 
@@ -201,8 +202,8 @@ https://stackoverflow.com/questions/55708392/how-to-send-data-through-a-futures-
 
 
 fn filter(info: Query<Info>) -> Result<impl Responder> {
-    let csv = reqwest::get(&info.csv_uri).map_err(|e| actix_web::error::ErrorBadRequest(e))?;
-    let formater = get_formater(&info.format).map_err(|e| actix_web::error::ErrorBadRequest(e))?;
+    let csv = reqwest::get(&info.csv_uri).map_err(actix_web::error::ErrorBadRequest)?;
+    let formater = get_formater(&info.format).map_err(actix_web::error::ErrorBadRequest)?;
     let mut buffer: Vec<u8> = vec![];
 
     process(formater, csv, &mut buffer);
@@ -227,14 +228,11 @@ fn filter(info: Query<Info>) -> Result<impl Responder> {
 fn process<R: io::Read, W: io::Write>(formater: Box<OutputFormater>, reader: R, writer: &mut W) {
     let cvs_iter = CsvSourceIterator::new(reader);
 
-    let mut count = 0;
     let line_separator = formater.get_line_separator();
 
     writeln!(writer, "{}", formater.get_output_begin()).expect("write error");
 
-    for result in cvs_iter {
-        count += 1;
-
+    for (count, result) in cvs_iter.enumerate() {
         match result {
             Ok(record) => {
                 let record: SourceLine = record;
@@ -253,7 +251,7 @@ fn process<R: io::Read, W: io::Write>(formater: Box<OutputFormater>, reader: R, 
                         };
 
                         let output = formater.format_ok_line(&output);
-                        write_line(writer, output, &count, line_separator);
+                        write_line(writer, output, count, line_separator);
                     }
                 }
             }
@@ -265,7 +263,7 @@ fn process<R: io::Read, W: io::Write>(formater: Box<OutputFormater>, reader: R, 
                 };
 
                 let output = formater.format_error_line(&output);
-                write_line(writer, output, &count, line_separator);
+                write_line(writer, output, count, line_separator);
             }
         }
     }
@@ -276,10 +274,10 @@ fn process<R: io::Read, W: io::Write>(formater: Box<OutputFormater>, reader: R, 
 fn write_line<W: io::Write>(
     writer: &mut W,
     output: String,
-    line_count: &i32,
+    line_count: usize,
     line_separator: &str,
 ) {
-    let mut output_line = if *line_count > 1 {
+    let mut output_line = if line_count > 1 {
         String::from(line_separator)
     } else {
         String::default()
@@ -303,7 +301,7 @@ fn get_formater(output_type_name: &str) -> Result<Box<OutputFormater>, BzError> 
 #[derive(Debug, Serialize)]
 struct OkLineOutput {
     #[serde(rename = "lineNumber")]
-    line_number: i32,
+    line_number: usize,
     #[serde(rename = "lineType")]
     line_type: String, // TODO : serialise to "type"
     #[serde(rename = "concatAB")]
@@ -315,7 +313,7 @@ struct OkLineOutput {
 #[derive(Debug, Serialize)]
 struct ErrorLineOutput {
     #[serde(rename = "lineNumber")]
-    line_number: i32,
+    line_number: usize,
     #[serde(rename = "lineType")]
     line_type: String, // TODO : serialise to "type"
     #[serde(rename = "errorMessage")]
@@ -439,8 +437,7 @@ impl<R: io::Read> Iterator for CsvSourceIterator<R> {
     type Item = Result<SourceLine, csv::Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.iterator.next();
-        next
+        self.iterator.next()
     }
 }
 
