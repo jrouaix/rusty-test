@@ -36,7 +36,7 @@ cargo doc --open
 
 
 
-# BeezUP Recruitment Test
+# Test
 
 ## Introduction
 - You are **required** to use the .NET Framework, using either .NET Core or .NET 4.5 or above.
@@ -91,8 +91,5 @@ Now this api should be able to ouput Text, Json, CSV, XML ...
 Update the API to be able to return JSON or XML formats for the payload response.
 
 ## Final (this step should be the easy one)
-
-Send a compressed file of the local git repository to : johnny@beezup.com / jerome@beezup.com.
-Please clean up the folder before compressing, remove any compiled files from the folder).
 
 We are constantly trying to improve our test. Any constructive feedback (too long, too easy, too vague, missing parts, you wanted to show something else ...) on this test is welcome.
