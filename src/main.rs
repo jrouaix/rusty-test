@@ -1,5 +1,3 @@
-#![feature(await_macro, async_await)]
-
 use std::{fmt, fmt::Display, fmt::Formatter, io};
 
 #[macro_use]
